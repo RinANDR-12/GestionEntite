@@ -1,0 +1,4 @@
+- [x] Add ttk.Style configuration for Treeview (fonts, row height, headings)
+- [x] Implement alternating row colors in afficher_employes using tags
+- [x] Add background color animation to the root window
+- [x] Test the application to ensure styles and animation work without affecting functionality

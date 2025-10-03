@@ -1,26 +1,26 @@
+# BD/db_delete.py
+
 import sqlite3
+import os
 
 def supprimer_employe(nom, prenom):
-    conn = sqlite3.connect('employes.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM employes WHERE nom=? AND prenom=?', (nom, prenom))
-    result = cursor.fetchone()
-    if result:
-        cursor.execute('DELETE FROM employes WHERE nom=? AND prenom=?', (nom, prenom))
+    """
+    Supprime un employé de la base de données par nom et prénom.
+    """
+    # Chemin vers la base de données (optionnel : ajustez si nécessaire)
+    db_path = os.path.join(os.path.dirname(__file__), '..', 'employes.db')
+    
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM employes WHERE nom = ? AND prenom = ?", (nom, prenom))
         conn.commit()
-        print(f"Employé {nom} {prenom} supprimé de la base de données.")
-    else:
-        print(f"Aucun employé trouvé avec le nom {nom} et le prénom {prenom}.")
-    # Afficher tous les employés restants
-    cursor.execute('SELECT * FROM employes')
-    rows = cursor.fetchall()
-    if not rows:
-        print("Aucun employé enregistré.")
-    else:
-        print("Liste des employés dans la base de données :")
-        for row in rows:
-            print(f"ID: {row[0]}, Nom: {row[1]}, Prénom: {row[2]}, Âge: {row[3]}, Sexe: {row[4]}, Poste: {row[5]}, Salaire: {row[6]}")
-    print("\n")
-    print("--------------------------------------------------")
-    print("Base de données mise à jour : ")
-    conn.close()
+        
+        if cursor.rowcount == 0:
+            raise ValueError(f"Aucun employé trouvé avec le nom '{nom}' et le prénom '{prenom}'.")
+            
+    except sqlite3.Error as e:
+        raise Exception(f"Erreur base de données : {e}")
+    finally:
+        if conn:
+            conn.close()
