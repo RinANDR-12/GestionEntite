@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-def modifier_employe_par_id(employe_id, nouvel_age=None, nouveau_sexe=None, nouveau_poste=None, nouveau_salaire=None):
+def modifier_employe(employe_id, nouvel_age=None, nouveau_sexe=None, nouveau_poste=None, nouveau_salaire=None):
     """
     Modifie un employé par son ID (méthode fiable)
     Les paramètres à None ne seront pas modifiés.
