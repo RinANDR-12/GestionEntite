@@ -2,11 +2,13 @@ import tkinter as tk
 from tkinter import ttk, messagebox, font
 import sys, os
 import sqlite3
+import calendar
+from datetime import datetime
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'BD'))
 from db_add import ajouter_employe
 from db_show import afficher_employes
-from db_update import modifier_employe_par_id  # 🔸 IMPORT CORRIGÉ
+from db_update import modifier_employe
 from db_delete import supprimer_employe
 
 
@@ -189,7 +191,7 @@ class ModifierEmployeForm(tk.Toplevel):
         self.title("Modifier un Employé")
         self.result = None
         self.parent = parent
-        self.employe_data = employe_data  # (id, nom, prenom, age, sexe, poste, salaire)
+        self.employe_data = employe_data
 
         self.transient(parent)
         self.grab_set()
@@ -400,7 +402,7 @@ class GestionEntiteApp(tk.Tk):
 
         self.content_frame = tk.Frame(self, bg="#1e1e1e")
         self.content_frame.pack(side="right", fill="both", expand=True, padx=20, pady=20)
-        self.content_frame.grid_rowconfigure(2, weight=1)
+        self.content_frame.grid_rowconfigure(3, weight=1)
         self.content_frame.grid_columnconfigure(0, weight=1)
 
         self.message = tk.Label(
@@ -415,8 +417,33 @@ class GestionEntiteApp(tk.Tk):
 
         self.create_search_bar()
 
+        self.button_frame = tk.Frame(self.content_frame, bg="#1e1e1e")
+        self.button_frame.grid(row=2, column=0, pady=(10, 0), sticky="ew")
+        
+        self.ajout_btn = tk.Button(
+            self.button_frame,
+            text="👤 Ajouter",
+            command=self.ajouter_employe,
+            font=("Segoe UI", 10, "bold"),
+            bg="#4dabf7",
+            fg="white",
+            relief='flat',
+            cursor='hand2',
+            activebackground="#6ecff6",
+            activeforeground="white",
+            padx=10,
+            pady=5,
+            bd=0,
+            highlightthickness=0
+        )
+        self.ajout_btn.pack(side="right", padx=5, pady=5)
+        self.ajout_btn.bind('<Enter>', lambda e, b=self.ajout_btn: b.config(bg="#6ecff6"))
+        self.ajout_btn.bind('<Leave>', lambda e, b=self.ajout_btn: b.config(bg="#4dabf7"))
+
+        self.current_view = "tableau"
+
         self.tree_frame = tk.Frame(self.content_frame, bg="#1e1e1e")
-        self.tree_frame.grid(row=2, column=0, sticky="nsew", pady=(10, 0))
+        self.tree_frame.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
         self.tree_frame.grid_rowconfigure(0, weight=1)
         self.tree_frame.grid_columnconfigure(0, weight=1)
 
@@ -424,6 +451,16 @@ class GestionEntiteApp(tk.Tk):
         self.bind('<Configure>', self.on_window_resize)
 
         self.after(100, self.afficher_employes)
+
+        try:
+            sqlite3.connect('employes.db').close()
+        except sqlite3.Error:
+            messagebox.showerror("Erreur", "Impossible de se connecter à la base de données")
+            sys.exit(1)
+
+        if not os.path.exists('employes.db'):
+            messagebox.showerror("Erreur", "Base de données introuvable")
+            sys.exit(1)
 
     def setup_fonts(self):
         default_font = font.nametofont("TkDefaultFont")
@@ -442,8 +479,8 @@ class GestionEntiteApp(tk.Tk):
 
     def create_sidebar_buttons(self):
         buttons_info = [
-            ("👤 Ajouter", self.ajouter_employe),
-            ("🚪 Quitter", self.quit)
+            ("📅 Planning", self.afficher_planning),
+            ("📊 Tableau", self.afficher_employes)
         ]
 
         for text, cmd in buttons_info:
@@ -512,7 +549,6 @@ class GestionEntiteApp(tk.Tk):
 
         self.search_var.trace_add("write", self.on_search_change)
 
-    # =============== MENU CONTEXTUEL ===============
     def create_context_menu(self):
         self.context_menu = tk.Menu(self, tearoff=0)
         self.context_menu.add_command(label="✏️ Modifier", command=self.context_modifier)
@@ -541,28 +577,24 @@ class GestionEntiteApp(tk.Tk):
             return
         
         values = self.tree.item(item, "values")
-        if not values or len(values) < 7:
+        if not values:
             self.set_message("❌ Données employé incomplètes.", "#ff6b6b")
             return
 
         try:
-            employe_id = int(values[0])
-            nom = str(values[1]).strip()
-            prenom = str(values[2]).strip()
-            age = int(values[3])
-            sexe = str(values[4]).strip().upper()
-            poste = str(values[5]).strip()
-            salaire = int(values[6])
-            
-            if not nom or not prenom or age < 0 or salaire < 0 or sexe not in ["M", "F"]:
-                self.set_message("❌ Données invalides.", "#ff6b6b")
-                return
-
-            employe_data = (employe_id, nom, prenom, age, sexe, poste, salaire)
+            employe_data = (
+                int(values[0]),
+                str(values[1]),
+                str(values[2]),
+                int(values[3]),
+                str(values[4]).upper(),
+                str(values[5]),
+                float(values[6])
+            )
             self.modifier_employe_direct(employe_data)
             
-        except Exception as e:
-            self.set_message("❌ Erreur : données employé invalides.", "#ff6b6b")
+        except (ValueError, IndexError) as e:
+            self.set_message(f"❌ Erreur : Format de données incorrect - {str(e)}", "#ff6b6b")
 
     def context_supprimer(self):
         item = self.tree.focus()
@@ -573,17 +605,14 @@ class GestionEntiteApp(tk.Tk):
             employe_id, nom, prenom = values[0], values[1], values[2]
             self.supprimer_employe_direct(employe_id, nom, prenom)
 
-    # =============== ACTIONS ===============
     def modifier_employe_direct(self, employe_data):
-        """employe_data = (id, nom, prenom, age, sexe, poste, salaire)"""
         form = ModifierEmployeForm(self, employe_data)
         self.wait_window(form)
         
         if form.result:
             data = form.result
             try:
-                # 🔸 UTILISATION DE L'ID POUR LA MODIFICATION
-                modifier_employe_par_id(
+                modifier_employe(
                     employe_id=employe_data[0],
                     nouvel_age=data["age"],
                     nouveau_sexe=data["sexe"],
@@ -604,7 +633,6 @@ class GestionEntiteApp(tk.Tk):
             except Exception as e:
                 self.set_message(f'❌ Erreur : {e}', '#ff6b6b')
 
-    # =============== TABLEAU ===============
     def on_search_change(self, *args):
         if hasattr(self, '_search_cache') and self._search_cache:
             self.filter_employees(self.search_var.get())
@@ -692,6 +720,8 @@ class GestionEntiteApp(tk.Tk):
         if self.tree:
             self.tree.destroy()
             self.tree = None
+        for widget in self.tree_frame.winfo_children():
+            widget.destroy()
 
     def update_treeview_columns(self):
         if not self.tree or not self.tree.winfo_ismapped():
@@ -706,10 +736,24 @@ class GestionEntiteApp(tk.Tk):
             self.tree.column(col, width=width, anchor='center')
 
     def afficher_employes(self):
+        self.current_view = "tableau"
+        self.ajout_btn.pack(side="right", padx=5, pady=5)
+        
         try:
             conn = sqlite3.connect('employes.db')
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM employes')
+            
+            cursor.execute('''
+                UPDATE employes 
+                SET id = (
+                    SELECT COUNT(*) 
+                    FROM employes AS e 
+                    WHERE e.id <= employes.id
+                )
+            ''')
+            conn.commit()
+            
+            cursor.execute('SELECT * FROM employes ORDER BY id')
             rows = cursor.fetchall()
             conn.close()
 
@@ -750,7 +794,208 @@ class GestionEntiteApp(tk.Tk):
             except Exception as e:
                 self.set_message(f'❌ Erreur : {e}', '#ff6b6b')
 
+    # =============== PLANNING AMÉLIORÉ ===============
+    def afficher_planning(self):
+        self.current_view = "planning"
+        self.ajout_btn.pack_forget()
+
+        self.clear_treeview()
+        self.set_message("📅 Planning mensuel", "#6ecff6")
+
+        for widget in self.tree_frame.winfo_children():
+            widget.destroy()
+
+        # Initialiser la date si ce n'est pas fait
+        if not hasattr(self, '_planning_date'):
+            self._planning_date = datetime.now().replace(day=1)
+
+        current_date = self._planning_date
+        year = current_date.year
+        month = current_date.month
+        today = datetime.now()
+
+        # === Barre de navigation ===
+        nav_frame = tk.Frame(self.tree_frame, bg="#1e1e1e")
+        nav_frame.pack(fill="x", padx=10, pady=(0, 15))
+
+        # Bouton Mois précédent
+        btn_prev = tk.Button(
+            nav_frame,
+            text="◄",
+            command=lambda: self._changer_mois(-1),
+            font=("Segoe UI", 12, "bold"),
+            bg="#3e3e42",
+            fg="#e0e0e0",
+            relief="flat",
+            cursor="hand2",
+            activebackground="#4a4a4f",
+            activeforeground="white",
+            width=3
+        )
+        btn_prev.pack(side="left")
+
+        # Titre du mois
+        mois_fr = {
+            1: "Janvier", 2: "Février", 3: "Mars", 4: "Avril",
+            5: "Mai", 6: "Juin", 7: "Juillet", 8: "Août",
+            9: "Septembre", 10: "Octobre", 11: "Novembre", 12: "Décembre"
+        }
+        titre = f"{mois_fr[month]} {year}"
+        tk.Label(
+            nav_frame,
+            text=titre,
+            font=("Segoe UI", 14, "bold"),
+            bg="#1e1e1e",
+            fg="#e0e0e0"
+        ).pack(side="left", padx=10)
+
+        # Bouton Mois suivant
+        btn_next = tk.Button(
+            nav_frame,
+            text="►",
+            command=lambda: self._changer_mois(1),
+            font=("Segoe UI", 12, "bold"),
+            bg="#3e3e42",
+            fg="#e0e0e0",
+            relief="flat",
+            cursor="hand2",
+            activebackground="#4a4a4f",
+            activeforeground="white",
+            width=3
+        )
+        btn_next.pack(side="left")
+
+        # Bouton "Aujourd'hui"
+        btn_today = tk.Button(
+            nav_frame,
+            text="Aujourd'hui",
+            command=self._aller_a_aujourd_hui,
+            font=("Segoe UI", 10),
+            bg="#4dabf7",
+            fg="#121212",
+            relief="flat",
+            cursor="hand2",
+            activebackground="#6ecff6",
+            activeforeground="#121212",
+            padx=8,
+            pady=2
+        )
+        btn_today.pack(side="right")
+
+        # === Calendrier ===
+        cal_frame = tk.Frame(self.tree_frame, bg="#252526")
+        cal_frame.pack(expand=True, fill="both", padx=10)
+        for i in range(7):
+            cal_frame.grid_columnconfigure(i, weight=1)
+
+        # En-têtes des jours
+        jours = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
+        for col, jour in enumerate(jours):
+            tk.Label(
+                cal_frame,
+                text=jour,
+                font=("Segoe UI", 10, "bold"),
+                bg="#2d2d2d",
+                fg="#e0e0e0",
+                height=2
+            ).grid(row=0, column=col, padx=2, pady=2, sticky="nsew")
+
+        # Générer les jours
+        cal = calendar.monthcalendar(year, month)
+        for row_idx, week in enumerate(cal, start=1):
+            for col_idx, day in enumerate(week):
+                if day == 0:
+                    cell = tk.Frame(cal_frame, bg="#252526")
+                else:
+                    is_today = (day == today.day and month == today.month and year == today.year)
+                    bg_color = "#4dabf7" if is_today else "#2d2d2d"
+                    fg_color = "#121212" if is_today else "#e0e0e0"
+                    
+                    cell = tk.Frame(cal_frame, bg=bg_color, highlightthickness=2)
+                    if is_today:
+                        cell.config(highlightbackground="#ffffff", highlightcolor="#ffffff")
+                    else:
+                        cell.config(highlightbackground=bg_color, highlightcolor=bg_color)
+                    
+                    tk.Label(
+                        cell,
+                        text=str(day),
+                        font=("Segoe UI", 11, "bold" if is_today else "normal"),
+                        bg=bg_color,
+                        fg=fg_color
+                    ).pack(expand=True, fill="both", padx=4, pady=4)
+                
+                cell.grid(row=row_idx, column=col_idx, padx=2, pady=2, sticky="nsew")
+                cal_frame.grid_rowconfigure(row_idx, weight=1)
+
+    def _changer_mois(self, delta):
+        """Change le mois affiché (+1 ou -1)."""
+        if not hasattr(self, '_planning_date'):
+            self._planning_date = datetime.now().replace(day=1)
+        
+        year = self._planning_date.year
+        month = self._planning_date.month + delta
+        
+        if month > 12:
+            month = 1
+            year += 1
+        elif month < 1:
+            month = 12
+            year -= 1
+        
+        self._planning_date = datetime(year, month, 1)
+        self.afficher_planning()
+
+    def _aller_a_aujourd_hui(self):
+        """Revenir au mois courant."""
+        self._planning_date = datetime.now().replace(day=1)
+        self.afficher_planning()
+
+
+def modifier_employe(employe_id, **kwargs):
+    try:
+        conn = sqlite3.connect('employes.db')
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM employes WHERE id=?", (employe_id,))
+        if not cursor.fetchone():
+            raise ValueError(f"Employé avec ID {employe_id} introuvable")
+        
+        update_fields = []
+        values = []
+        for key, value in kwargs.items():
+            if key in ['nom', 'prenom'] and value.strip() == '':
+                raise ValueError(f"Le champ {key} ne peut pas être vide")
+            if key == 'age' and (not isinstance(value, int) or value < 16 or value > 65):
+                raise ValueError("L'âge doit être entre 16 et 65 ans")
+            if key == 'salaire':
+                try:
+                    sal = float(value)
+                    if sal < 0:
+                        raise ValueError("Le salaire doit être un nombre positif")
+                    value = sal
+                except ValueError:
+                    raise ValueError("Le salaire doit être un nombre valide")
+            
+            update_fields.append(f"{key}=?")
+            values.append(value)
+        
+        values.append(employe_id)
+        query = f"UPDATE employes SET {', '.join(update_fields)} WHERE id=?"
+        cursor.execute(query, values)
+        conn.commit()
+        return True
+        
+    except sqlite3.Error as e:
+        print(f"Erreur SQLite: {e}")
+        raise
+    except ValueError as e:
+        print(f"Erreur de validation: {e}")
+        raise
+    finally:
+        conn.close()
+
 
 if __name__ == '__main__':
     app = GestionEntiteApp()
-    app.mainloop(
+    app.mainloop()
