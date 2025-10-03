@@ -753,4 +753,4 @@ class GestionEntiteApp(tk.Tk):
 
 if __name__ == '__main__':
     app = GestionEntiteApp()
-    app.mainloop()
+    app.mainloop(
