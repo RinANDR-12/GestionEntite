@@ -415,7 +415,51 @@ class GestionEntiteApp(tk.Tk):
         )
         self.message.grid(row=0, column=0, pady=(0, 5), sticky="ew")
 
-        self.create_search_bar()
+        # --- Barre de recherche (sera cachée en mode planning) ---
+        self.search_frame = tk.Frame(self.content_frame, bg="#1e1e1e")
+        self.search_frame.grid(row=1, column=0, pady=(0, 10), sticky="ew")
+        self.search_frame.grid_columnconfigure(1, weight=1)
+
+        tk.Label(
+            self.search_frame,
+            text="🔍 Rechercher :",
+            font=self.base_font,
+            bg="#1e1e1e",
+            fg="#a0a0a0"
+        ).grid(row=0, column=0, padx=(0, 10), sticky="w")
+
+        self.search_var = tk.StringVar()
+        self.search_entry = tk.Entry(
+            self.search_frame,
+            textvariable=self.search_var,
+            font=self.base_font,
+            relief="flat",
+            bg="#252526",
+            fg="#e0e0e0",
+            insertbackground="#4dabf7",
+            highlightthickness=1,
+            highlightbackground="#3c3c40",
+            highlightcolor="#4dabf7"
+        )
+        self.search_entry.grid(row=0, column=1, padx=(0, 10), sticky="ew", ipady=4)
+
+        reset_btn = tk.Button(
+            self.search_frame,
+            text="Réinitialiser",
+            command=self.clear_search,
+            font=("Segoe UI", 9, "bold"),
+            bg="#5a5a5a",
+            fg="white",
+            relief="flat",
+            cursor="hand2",
+            activebackground="#6e6e6e",
+            activeforeground="white",
+            padx=10,
+            pady=2
+        )
+        reset_btn.grid(row=0, column=2)
+
+        self.search_var.trace_add("write", self.on_search_change)
 
         self.button_frame = tk.Frame(self.content_frame, bg="#1e1e1e")
         self.button_frame.grid(row=2, column=0, pady=(10, 0), sticky="ew")
@@ -502,52 +546,6 @@ class GestionEntiteApp(tk.Tk):
             btn.pack(pady=8, padx=15, fill="x")
             btn.bind('<Enter>', lambda e, b=btn: b.config(bg="#4a4a4f"))
             btn.bind('<Leave>', lambda e, b=btn: b.config(bg="#3e3e42"))
-
-    def create_search_bar(self):
-        search_frame = tk.Frame(self.content_frame, bg="#1e1e1e")
-        search_frame.grid(row=1, column=0, pady=(0, 10), sticky="ew")
-        search_frame.grid_columnconfigure(1, weight=1)
-
-        tk.Label(
-            search_frame,
-            text="🔍 Rechercher :",
-            font=self.base_font,
-            bg="#1e1e1e",
-            fg="#a0a0a0"
-        ).grid(row=0, column=0, padx=(0, 10), sticky="w")
-
-        self.search_var = tk.StringVar()
-        self.search_entry = tk.Entry(
-            search_frame,
-            textvariable=self.search_var,
-            font=self.base_font,
-            relief="flat",
-            bg="#252526",
-            fg="#e0e0e0",
-            insertbackground="#4dabf7",
-            highlightthickness=1,
-            highlightbackground="#3c3c40",
-            highlightcolor="#4dabf7"
-        )
-        self.search_entry.grid(row=0, column=1, padx=(0, 10), sticky="ew", ipady=4)
-
-        reset_btn = tk.Button(
-            search_frame,
-            text="Réinitialiser",
-            command=self.clear_search,
-            font=("Segoe UI", 9, "bold"),
-            bg="#5a5a5a",
-            fg="white",
-            relief="flat",
-            cursor="hand2",
-            activebackground="#6e6e6e",
-            activeforeground="white",
-            padx=10,
-            pady=2
-        )
-        reset_btn.grid(row=0, column=2)
-
-        self.search_var.trace_add("write", self.on_search_change)
 
     def create_context_menu(self):
         self.context_menu = tk.Menu(self, tearoff=0)
@@ -738,6 +736,7 @@ class GestionEntiteApp(tk.Tk):
     def afficher_employes(self):
         self.current_view = "tableau"
         self.ajout_btn.pack(side="right", padx=5, pady=5)
+        self.search_frame.grid()  # Réafficher la barre de recherche
         
         try:
             conn = sqlite3.connect('employes.db')
@@ -794,47 +793,45 @@ class GestionEntiteApp(tk.Tk):
             except Exception as e:
                 self.set_message(f'❌ Erreur : {e}', '#ff6b6b')
 
-    # =============== PLANNING AMÉLIORÉ ===============
+    # =============== PLANNING FINAL : SANS BARRE DE RECHERCHE, 75%/25%, INTERFACE COHÉRENTE ===============
     def afficher_planning(self):
         self.current_view = "planning"
         self.ajout_btn.pack_forget()
-
-        self.clear_treeview()
-        self.set_message("📅 Planning mensuel", "#6ecff6")
+        self.search_frame.grid_remove()  # ←←← CACHER LA BARRE DE RECHERCHE
 
         for widget in self.tree_frame.winfo_children():
             widget.destroy()
+        self.set_message("📅 Planning mensuel", "#6ecff6")
 
-        # Initialiser la date si ce n'est pas fait
         if not hasattr(self, '_planning_date'):
             self._planning_date = datetime.now().replace(day=1)
+        if not hasattr(self, '_selected_day'):
+            self._selected_day = None
 
         current_date = self._planning_date
         year = current_date.year
         month = current_date.month
-        today = datetime.now()
+        today = datetime.today()
 
-        # === Barre de navigation ===
+        # Barre de navigation
         nav_frame = tk.Frame(self.tree_frame, bg="#1e1e1e")
         nav_frame.pack(fill="x", padx=10, pady=(0, 15))
 
-        # Bouton Mois précédent
-        btn_prev = tk.Button(
+        tk.Button(
             nav_frame,
             text="◄",
             command=lambda: self._changer_mois(-1),
-            font=("Segoe UI", 12, "bold"),
+            font=("Segoe UI", 10, "bold"),
             bg="#3e3e42",
             fg="#e0e0e0",
             relief="flat",
             cursor="hand2",
             activebackground="#4a4a4f",
             activeforeground="white",
-            width=3
-        )
-        btn_prev.pack(side="left")
+            padx=10,
+            pady=5
+        ).pack(side="left")
 
-        # Titre du mois
         mois_fr = {
             1: "Janvier", 2: "Février", 3: "Mars", 4: "Avril",
             5: "Mai", 6: "Juin", 7: "Juillet", 8: "Août",
@@ -847,52 +844,56 @@ class GestionEntiteApp(tk.Tk):
             font=("Segoe UI", 14, "bold"),
             bg="#1e1e1e",
             fg="#e0e0e0"
-        ).pack(side="left", padx=10)
+        ).pack(side="left", padx=20)
 
-        # Bouton Mois suivant
-        btn_next = tk.Button(
+        tk.Button(
             nav_frame,
             text="►",
             command=lambda: self._changer_mois(1),
-            font=("Segoe UI", 12, "bold"),
+            font=("Segoe UI", 10, "bold"),
             bg="#3e3e42",
             fg="#e0e0e0",
             relief="flat",
             cursor="hand2",
             activebackground="#4a4a4f",
             activeforeground="white",
-            width=3
-        )
-        btn_next.pack(side="left")
+            padx=10,
+            pady=5
+        ).pack(side="left")
 
-        # Bouton "Aujourd'hui"
-        btn_today = tk.Button(
+        tk.Button(
             nav_frame,
             text="Aujourd'hui",
             command=self._aller_a_aujourd_hui,
-            font=("Segoe UI", 10),
+            font=("Segoe UI", 10, "bold"),
             bg="#4dabf7",
             fg="#121212",
             relief="flat",
             cursor="hand2",
             activebackground="#6ecff6",
             activeforeground="#121212",
-            padx=8,
-            pady=2
-        )
-        btn_today.pack(side="right")
+            padx=12,
+            pady=5
+        ).pack(side="right")
 
-        # === Calendrier ===
-        cal_frame = tk.Frame(self.tree_frame, bg="#252526")
-        cal_frame.pack(expand=True, fill="both", padx=10)
+        # Zone principale : 75% calendrier / 25% messages → équilibré et lisible
+        main_frame = tk.Frame(self.tree_frame, bg="#1e1e1e")
+        main_frame.pack(expand=True, fill="both", padx=10)
+        main_frame.grid_columnconfigure(0, weight=75)
+        main_frame.grid_columnconfigure(1, weight=25)
+        main_frame.grid_rowconfigure(0, weight=1)
+
+        # --- Calendrier (75%) ---
+        cal_container = tk.Frame(main_frame, bg="#252526")
+        cal_container.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        cal_container.grid_rowconfigure(0, weight=1)
         for i in range(7):
-            cal_frame.grid_columnconfigure(i, weight=1)
+            cal_container.grid_columnconfigure(i, weight=1)
 
-        # En-têtes des jours
         jours = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
         for col, jour in enumerate(jours):
             tk.Label(
-                cal_frame,
+                cal_container,
                 text=jour,
                 font=("Segoe UI", 10, "bold"),
                 bg="#2d2d2d",
@@ -900,55 +901,140 @@ class GestionEntiteApp(tk.Tk):
                 height=2
             ).grid(row=0, column=col, padx=2, pady=2, sticky="nsew")
 
-        # Générer les jours
         cal = calendar.monthcalendar(year, month)
         for row_idx, week in enumerate(cal, start=1):
             for col_idx, day in enumerate(week):
                 if day == 0:
-                    cell = tk.Frame(cal_frame, bg="#252526")
+                    cell = tk.Frame(cal_container, bg="#252526")
+                    cell.grid(row=row_idx, column=col_idx, padx=2, pady=2, sticky="nsew")
                 else:
                     is_today = (day == today.day and month == today.month and year == today.year)
-                    bg_color = "#4dabf7" if is_today else "#2d2d2d"
-                    fg_color = "#121212" if is_today else "#e0e0e0"
-                    
-                    cell = tk.Frame(cal_frame, bg=bg_color, highlightthickness=2)
-                    if is_today:
-                        cell.config(highlightbackground="#ffffff", highlightcolor="#ffffff")
+                    is_selected = (self._selected_day == day and month == self._planning_date.month and year == self._planning_date.year)
+
+                    if is_selected:
+                        bg_color = "#6ecff6"
+                        fg_color = "#121212"
+                        font_weight = "bold"
+                        highlight_bg = "#ffffff"
+                    elif is_today:
+                        bg_color = "#4dabf7"
+                        fg_color = "#121212"
+                        font_weight = "bold"
+                        highlight_bg = "#ffffff"
                     else:
-                        cell.config(highlightbackground=bg_color, highlightcolor=bg_color)
-                    
+                        bg_color = "#2d2d2d"
+                        fg_color = "#e0e0e0"
+                        font_weight = "normal"
+                        highlight_bg = bg_color
+
+                    cell = tk.Frame(
+                        cal_container,
+                        bg=bg_color,
+                        highlightthickness=2,
+                        highlightbackground=highlight_bg,
+                        highlightcolor=highlight_bg,
+                        cursor="hand2"
+                    )
                     tk.Label(
                         cell,
                         text=str(day),
-                        font=("Segoe UI", 11, "bold" if is_today else "normal"),
+                        font=("Segoe UI", 11, font_weight),
                         bg=bg_color,
                         fg=fg_color
-                    ).pack(expand=True, fill="both", padx=4, pady=4)
-                
-                cell.grid(row=row_idx, column=col_idx, padx=2, pady=2, sticky="nsew")
-                cal_frame.grid_rowconfigure(row_idx, weight=1)
+                    ).pack(expand=True, fill="both", padx=6, pady=6)
+
+                    cell.bind("<Button-1>", lambda e, d=day: self._on_day_click(d, month, year))
+                    for child in cell.winfo_children():
+                        child.bind("<Button-1>", lambda e, d=day: self._on_day_click(d, month, year))
+
+                    cell.grid(row=row_idx, column=col_idx, padx=2, pady=2, sticky="nsew")
+                cal_container.grid_rowconfigure(row_idx, weight=1)
+
+        # --- Zone messages (25%) ---
+        msg_frame = tk.Frame(main_frame, bg="#252526")
+        msg_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+
+        tk.Label(
+            msg_frame,
+            text="📋 Actions du jour",
+            font=("Segoe UI", 12, "bold"),
+            bg="#252526",
+            fg="#4dabf7",
+            pady=10
+        ).pack(fill="x", padx=10)
+
+        sep = tk.Frame(msg_frame, bg="#3c3c40", height=1)
+        sep.pack(fill="x", padx=10, pady=(0, 10))
+
+        text_frame = tk.Frame(msg_frame, bg="#1e1e1e")
+        text_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        self.planning_text = tk.Text(
+            text_frame,
+            bg="#1e1e1e",
+            fg="#e0e0e0",
+            font=("Segoe UI", 10),
+            wrap="word",
+            relief="flat",
+            padx=10,
+            pady=10,
+            state="disabled"
+        )
+        scrollbar = tk.Scrollbar(text_frame, orient="vertical", command=self.planning_text.yview)
+        self.planning_text.configure(yscrollcommand=scrollbar.set)
+
+        self.planning_text.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        self._update_planning_message(month, year)
+
+    def _on_day_click(self, day, month, year):
+        self._selected_day = day
+        self._update_planning_message(month, year, selected_day=day)
+        self.afficher_planning()
+
+    def _update_planning_message(self, month, year, selected_day=None):
+        today = datetime.today()
+        message = ""
+
+        if selected_day is not None:
+            message = f"✅ Jour sélectionné :\n{selected_day} {self._get_month_name(month)} {year}\n\n"
+            message += "Actions possibles :\n• Affecter un employé\n• Marquer une absence\n• Voir les présences\n\n"
+            message += "➡️ Cliquez sur un bouton ci-dessous pour gérer."
+        else:
+            if month == today.month and year == today.year:
+                message = "📆 Vue du mois en cours.\n\nCliquez sur un jour pour afficher les actions disponibles."
+            else:
+                message = f"📆 Vue de {self._get_month_name(month)} {year}.\n\nSélectionnez un jour pour gérer le planning."
+
+        self.planning_text.config(state="normal")
+        self.planning_text.delete(1.0, "end")
+        self.planning_text.insert("end", message)
+        self.planning_text.config(state="disabled")
+
+    def _get_month_name(self, month_num):
+        mois_fr = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+                   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+        return mois_fr[month_num]
 
     def _changer_mois(self, delta):
-        """Change le mois affiché (+1 ou -1)."""
         if not hasattr(self, '_planning_date'):
             self._planning_date = datetime.now().replace(day=1)
-        
+        self._selected_day = None
         year = self._planning_date.year
         month = self._planning_date.month + delta
-        
         if month > 12:
             month = 1
             year += 1
         elif month < 1:
             month = 12
             year -= 1
-        
         self._planning_date = datetime(year, month, 1)
         self.afficher_planning()
 
     def _aller_a_aujourd_hui(self):
-        """Revenir au mois courant."""
-        self._planning_date = datetime.now().replace(day=1)
+        self._planning_date = datetime.today().replace(day=1)
+        self._selected_day = None
         self.afficher_planning()
 
 
