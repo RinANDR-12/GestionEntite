@@ -612,7 +612,7 @@ class GestionEntiteApp(tk.Tk):
             try:
                 modifier_employe(
                     employe_id=employe_data[0],
-                    nouvel_age=data["age"],
+                    age=data["age"],
                     nouveau_sexe=data["sexe"],
                     nouveau_poste=data["poste"],
                     nouveau_salaire=data["salaire"]
