@@ -613,9 +613,9 @@ class GestionEntiteApp(tk.Tk):
                 modifier_employe(
                     employe_id=employe_data[0],
                     age=data["age"],
-                    nouveau_sexe=data["sexe"],
-                    nouveau_poste=data["poste"],
-                    nouveau_salaire=data["salaire"]
+                    sexe=data["sexe"],
+                    poste=data["poste"],
+                    salaire=data["salaire"]
                 )
                 self.set_message('✅ Employé modifié avec succès !', '#69db7c')
                 self.afficher_employes()
