@@ -332,7 +332,7 @@ class ModifierEmployeForm(tk.Toplevel):
             data["poste"] = poste
 
         try:
-            salaire = int(self.entries["salaire"].get().strip())
+            salaire = float(self.entries["salaire"].get().strip())
             if salaire < 0:
                 errors.append("Salaire invalide (doit être ≥ 0)")
             else:
