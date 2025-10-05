@@ -332,7 +332,7 @@ class ModifierEmployeForm(tk.Toplevel):
             data["poste"] = poste
 
         try:
-            salaire = int(self.entries["salaire"].get().strip())
+            salaire = float(self.entries["salaire"].get().strip())
             if salaire < 0:
                 errors.append("Salaire invalide (doit être ≥ 0)")
             else:
@@ -613,10 +613,10 @@ class GestionEntiteApp(tk.Tk):
             try:
                 modifier_employe(
                     employe_id=employe_data[0],
-                    nouvel_age=data["age"],
-                    nouveau_sexe=data["sexe"],
-                    nouveau_poste=data["poste"],
-                    nouveau_salaire=data["salaire"]
+                    age=data["age"],
+                    sexe=data["sexe"],
+                    poste=data["poste"],
+                    salaire=data["salaire"]
                 )
                 self.set_message('✅ Employé modifié avec succès !', '#69db7c')
                 self.afficher_employes()
