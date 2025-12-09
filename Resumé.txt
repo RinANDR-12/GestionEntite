@@ -1,9 +1,3 @@
-Absolument ! Voici un **résumé clair et structuré** de tout ce que nous avons accompli **aujourd’hui** pour améliorer votre application de gestion des employés :
-
----
-
-### ✅ **Résumé des améliorations réalisées aujourd’hui**
-
 #### 1. **Ajout d’un planning (calendrier) professionnel**
 - Création d’un **calendrier mensuel interactif** dans l’interface
 - Affichage des **jours numérotés (1, 2, 3…)** dans une grille claire
@@ -41,15 +35,9 @@ Absolument ! Voici un **résumé clair et structuré** de tout ce que nous avons
 
 ---
 
-### 💡 **Perspectives futures (si vous le souhaitez)**
+### 💡 **Perspectives futures**
 - Associer des **employés à des dates** (ex: planning de travail)
 - Afficher un **point coloré** sous les jours avec des employés planifiés
 - Ajouter une **vue hebdomadaire**
 - Permettre de **cliquer sur un jour** pour ouvrir une fenêtre de gestion
 
----
-
-Mais pour l’instant : **bravo** ! 🎉  
-Vous avez une application **élégante, fonctionnelle, et professionnelle**, prête pour une démonstration ou un usage réel.
-
-Souhaitez-vous exporter ce projet, créer un exécutable, ou ajouter une fonctionnalité spécifique ? 😊
